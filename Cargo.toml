@@ -17,3 +17,9 @@ futures = "0.3"
 
 # serde: Will help us "serialize" data to JSON for our UI later
 serde = { version = "1.0", features = ["derive"] }
+
+# colored: for formatting the output with colors
+colored = "3.0"
+
+# async-trait:
+async-trait = "0.1.89"
