@@ -9,6 +9,9 @@ description = "A high-performance, lightweight telemetry overlay for iRacing bui
 # pitwall: The bridge to iRacing memory
 pitwall = { version = "0.1", features = ["derive"] }
 
+# tracing: added as pitwall dependency
+tracing = "0.1.44"
+
 # tokio: Allows us to do things in the background (Async)
 tokio = { version = "1.0", features = ["full"] }
 
@@ -23,3 +26,4 @@ colored = "3.0"
 
 # async-trait:
 async-trait = "0.1.89"
+
