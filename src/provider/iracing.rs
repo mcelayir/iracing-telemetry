@@ -4,7 +4,7 @@ use pitwall::{Pitwall, PitwallFrame, UpdateRate};
 use colored::Colorize;
 use std::error::Error;
 
-use super::{TelemetryFrame, TelemetryProvider};
+use super::{SimState, DashboardFrame, TelemetryFrame, RaceFrame, TelemetryProvider};
 
 /// Internal struct mapping exactly to iRacing's Memory Map fields.
 #[derive(PitwallFrame, Debug)]
@@ -15,6 +15,18 @@ struct IRacingData {
     rpm: f32,
     #[field_name = "Speed"]
     speed: f32,
+
+    // Telemetry Data (Inputs)
+    #[field_name = "Throttle"]
+    throttle: f32,
+    #[field_name = "Brake"]
+    brake: f32,
+
+    // Race Context Data
+    #[field_name = "TrackTemp"]
+    track_temp: f32,
+    #[field_name = "PlayerCarPosition"]
+    position: i32,
 }
 
 pub struct IRacingProvider {
@@ -56,32 +68,48 @@ impl TelemetryProvider for IRacingProvider {
         self.connection = None;
     }
 
-    async fn next_frame(&mut self) -> Option<TelemetryFrame> {
-        // If the handle is gone, we are truly disconnected
+    async fn next_frame(&mut self) -> Option<SimState> {
+        // 1. Check for connection handle
         let conn = self.connection.as_ref()?;
         
-        // If we have a handle but the stream is missing (e.g., after a hiccup), 
-        // we try to re-subscribe silently here.
+        // 2. Resilience: Re-subscribe if stream is missing
         if self.stream.is_none() {
             let st = conn.subscribe::<IRacingData>(UpdateRate::Native);
             self.stream = Some(Box::new(st));
         }
 
         let stream = self.stream.as_mut()?;
+
+        // 3. Poll the next telemetry frame
         match stream.next().await {
-            Some(data) => Some(TelemetryFrame {
-                gear: data.gear,
-                rpm: data.rpm,
-                speed: data.speed * 3.6,
-            }),
+            Some(data) => {
+                // Mapping raw SDK data to our modular Public Interface
+                Some(SimState {
+                    dashboard: DashboardFrame {
+                        gear: data.gear,
+                        rpm: data.rpm,
+                        speed: data.speed * 3.6, // Convert m/s to KPH
+                    },
+                    telemetry: TelemetryFrame {
+                        throttle: data.throttle,
+                        brake: data.brake,
+                    },
+                    race: RaceFrame {
+                        sof: 0, // Placeholder for YAML parsing
+                        track_temp: data.track_temp,
+                        position: data.position,
+                    },
+                })
+            },
             None => {
-                // If the stream returns None, the game is still open (handle exists),
-                // but no data is flowing. We clear the stream to trigger a 
-                // re-subscribe next tick, but we DO NOT return None to main.rs.
+                // Stream hiccup: Clear stream for next tick re-subscription
                 self.stream = None;
-                // Return a dummy frame or wait briefly to keep the loop alive
+                
+                // Wait briefly to prevent high-frequency spinning during downtime
                 tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-                Some(TelemetryFrame::default()) 
+                
+                // Return Default state to keep consumers alive
+                Some(SimState::default()) 
             }
         }
     }

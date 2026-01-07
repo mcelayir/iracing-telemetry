@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use tokio::time::{sleep, Duration};
 use std::error::Error;
 
-use super::{TelemetryFrame, TelemetryProvider};
+use super::{SimState, DashboardFrame, TelemetryFrame, RaceFrame, TelemetryProvider};
 
 pub struct MockProvider {
     is_active: bool,
@@ -37,15 +37,15 @@ impl TelemetryProvider for MockProvider {
         self.is_active = false;
     }
 
-    async fn next_frame(&mut self) -> Option<TelemetryFrame> {
+    async fn next_frame(&mut self) -> Option<SimState> {
         if !self.is_active {
             return None;
         }
 
-        // Simulate a 60Hz update rate
+        // Simulate a 60Hz update rate (approx 16.6ms)
         sleep(Duration::from_millis(16)).await;
 
-        // Simple RPM logic: bounce between 1000 and 8000
+        // 1. Simulate RPM and Gear Logic
         if self.increasing {
             self.current_rpm += 150.0;
             if self.current_rpm >= 8000.0 { self.increasing = false; }
@@ -54,10 +54,23 @@ impl TelemetryProvider for MockProvider {
             if self.current_rpm <= 1000.0 { self.increasing = true; }
         }
 
-        Some(TelemetryFrame {
-            gear: 3,
-            rpm: self.current_rpm,
-            speed: (self.current_rpm / 100.0) * 2.5, // Fake speed scaling
+        // 2. Map into the unified SimState
+        Some(SimState {
+            dashboard: DashboardFrame {
+                gear: 3,
+                rpm: self.current_rpm,
+                speed: (self.current_rpm / 100.0) * 2.5, // Fake speed scaling
+            },
+            telemetry: TelemetryFrame {
+                // Simulate throttle being pressed when RPM increases, brake when decreasing
+                throttle: if self.increasing { 0.8 } else { 0.0 },
+                brake: if !self.increasing { 0.4 } else { 0.0 },
+            },
+            race: RaceFrame {
+                sof: 2500,        // Static high-quality mock data
+                track_temp: 32.5,  // Standard racing temp
+                position: 5,      // Mock mid-field position
+            },
         })
     }
 }

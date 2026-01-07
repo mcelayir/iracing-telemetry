@@ -1,13 +1,34 @@
 use async_trait::async_trait;
+use serde::{Serialize, Deserialize};
 
 pub mod mock; // Link the mock.rs file
 pub mod iracing;
 
-#[derive(Debug, Clone, Default)]
-pub struct TelemetryFrame {
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SimState {
+    pub dashboard: DashboardFrame,
+    pub race: RaceFrame,
+    pub telemetry: TelemetryFrame,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct DashboardFrame {
     pub gear: i32,
     pub rpm: f32,
     pub speed: f32,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RaceFrame {
+    pub sof: i32,
+    pub track_temp: f32,
+    pub position: i32,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TelemetryFrame {
+    pub throttle: f32, // 0.0 to 1.0
+    pub brake: f32,    // 0.0 to 1.0
 }
 
 #[async_trait]
@@ -18,5 +39,5 @@ pub trait TelemetryProvider {
     fn is_connected(&self) -> bool;
 
     // Data Flow
-    async fn next_frame(&mut self) -> Option<TelemetryFrame>;
+    async fn next_frame(&mut self) -> Option<SimState>;
 }
