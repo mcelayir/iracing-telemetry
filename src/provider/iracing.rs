@@ -105,9 +105,8 @@ impl TelemetryProvider for IRacingProvider {
                 
                 // Wait briefly to prevent high-frequency spinning during downtime
                 tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-                
-                // Return Default state to keep consumers alive
-                Some(SimState::default()) 
+                self.disconnect().await;
+                None
             }
         }
     }

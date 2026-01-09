@@ -30,10 +30,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             gauge_consumer.run().await;
         });
 
-        let gauge_telemetry = WsTelemetry::new(9000);
-        tokio::spawn(async move {
-            gauge_telemetry.run().await;
-        });
+        // let gauge_telemetry = WsTelemetry::new(9000);
+        // tokio::spawn(async move {
+        //     gauge_telemetry.run().await;
+        // });
     });
 
     // 4. Use the Interface (Trait Object)
