@@ -15,8 +15,12 @@ tracing = "0.1.44"
 # tokio: Allows us to do things in the background (Async)
 tokio = { version = "1.0", features = ["full"] }
 
+# tokio-tungstenite: Websocket  
+tokio-tungstenite = "0.21"
+
 # futures: Helps handle the "stream" of data from the car
 futures = "0.3"
+futures-util = "0.3"
 
 # serde: Will help us "serialize" data to JSON for our UI later
 serde = { version = "1.0", features = ["derive"] }

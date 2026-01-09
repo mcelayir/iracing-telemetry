@@ -1,8 +1,13 @@
+pub mod mock;
+pub mod iracing;
+
+pub use self::iracing::IRacingProvider;
+pub use self::mock::MockProvider;
+
 use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
 
-pub mod mock; // Link the mock.rs file
-pub mod iracing;
+
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SimState {

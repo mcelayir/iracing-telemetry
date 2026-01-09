@@ -1,8 +1,6 @@
 use async_trait::async_trait;
 use futures::StreamExt;
 use pitwall::{Pitwall, PitwallFrame, UpdateRate};
-use colored::Colorize;
-use std::error::Error;
 
 use super::{SimState, DashboardFrame, TelemetryFrame, RaceFrame, TelemetryProvider};
 

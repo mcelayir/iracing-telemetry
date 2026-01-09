@@ -1,48 +1,55 @@
-use iracing_telemetry::provider::iracing::IRacingProvider;
-use iracing_telemetry::provider::TelemetryProvider;
-use iracing_telemetry::ui::cli::render_gauge;
-use std::time::Duration;
-use tokio::time::sleep;
-use colored::Colorize;
+pub mod provider;
+pub mod network;
+pub mod ui;
+
+use tokio::sync::broadcast;
+use crate::provider::{TelemetryProvider, IRacingProvider, MockProvider, SimState};
+use crate::network::{ServerConfig, start_websocket_server};
+use crate::ui::{WsGauge, WsTelemetry};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(windows)]
     let _ = colored::control::set_virtual_terminal(true);
 
-    // Using the trait object approach (or direct struct if you prefer)
-    let mut provider = IRacingProvider::new();
+    // 1. Setup Data Bus
+    let (tx, _): (broadcast::Sender<SimState>, _) = broadcast::channel(16);
+    let server_tx = tx.clone();
+    let config = ServerConfig { port: 9000, ..Default::default() };
 
-   loop {
-        // 1. Connection Gate: Only run if we aren't connected
+    // 2. Spawn WebSocket Server
+    tokio::spawn(async move {
+        start_websocket_server(config, tx.subscribe()).await;
+    });
+
+    // 3. Spawn Internal UI Consumer
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        let gauge_consumer = WsGauge::new(9000);
+        tokio::spawn(async move {
+            gauge_consumer.run().await;
+        });
+
+        let gauge_telemetry = WsTelemetry::new(9000);
+        tokio::spawn(async move {
+            gauge_telemetry.run().await;
+        });
+    });
+
+    // 4. Use the Interface (Trait Object)
+    // This allows us to swap IRacingProvider with MockProvider easily
+    let mut provider: Box<dyn TelemetryProvider> = Box::new(IRacingProvider::new());
+
+    // 5. Orchestration Loop
+    loop {
         if !provider.is_connected() {
-            println!("🔍 {} Waiting for session...", "IDLE:".yellow());
-            
-            while let Err(_) = provider.connect().await {
-                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-            }
-            if provider.is_connected() {
-                println!("✅ {} Live!", "CONNECTED:".green().bold());
-            }
+            let _ = provider.connect().await;
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            continue;
         }
 
-        // 2. Data Retrieval: Single poll per loop iteration
-        match provider.next_frame().await {
-            Some(frame) => {
-                render_gauge(&frame);
-            }
-            None => {
-                // If we get None, it doesn't necessarily mean the game closed.
-                // We check the provider's connection status explicitly.
-                if !provider.is_connected() {
-                    println!("\n❌ {} Session lost.", "DISCONNECTED:".red().bold());
-                    // Only now will the next iteration hit the "IDLE" print
-                } else {
-                    // The stream is still alive, but no data this tick. 
-                    // We just sleep briefly and try again.
-                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-                }
-            }
+        if let Some(state) = provider.next_frame().await {
+            let _ = server_tx.send(state);
         }
     }
 }
