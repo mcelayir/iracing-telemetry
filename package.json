@@ -1,0 +1,12 @@
+{
+  "name": "iracing-telemetry-monorepo",
+  "private": true,
+  "scripts": {
+    "build:backend": "./scripts/build-windows.sh",
+    "dev:frontend": "cd frontend && npm run dev",
+    "start": "npm run build:backend && npm run dev:frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
